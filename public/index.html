@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>/tmp</title>
+<style type="text/css">
+html, body, canvas {
+  margin: 0;
+  padding: 0;
+}
+
+canvas {
+  display: block;
+}
+</style>
+</head>
+<body>
+<script id="fs" type="x-shader/x-fragment">
+precision mediump float;
+uniform vec2 resolutionInverse;
+uniform float time;
+uniform sampler2D tex;
+
+float rand(float t) {
+  return fract(sin(t * sin(t) * 423.0 + sin(t * 1000. * 12.)));
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy * resolutionInverse * vec2(1.0, -1.0);
+  uv += vec2(floor(rand(time * 0.0001) * 2.0) * 0.57 + rand(time * 0.0001) * 0.4 + sin(gl_FragCoord.x * resolutionInverse.x * 200.0 * cos(floor(time * 2.0))), 1.0);
+  
+  // logo and background
+  vec3 color = texture2D(tex, uv).rgb * 0.5;
+  color += texture2D(tex, gl_FragCoord.xy * resolutionInverse * vec2(1.0, -1.0) + vec2(0.0, 1.0)).rgb;
+  
+  // chromatic aberration
+  color += vec3(0.0, 0.0, texture2D(tex, (gl_FragCoord.xy + rand(time) * 4.) * resolutionInverse * vec2(1.0, -1.0)).b);
+  
+  // scanlines
+  color *= mod(gl_FragCoord.y, 3.0);
+  
+  // fade to black
+  color *= clamp(mod(rand(time * 0.0003), 1.0) * 1.8, 0.0, 1.0);
+  
+  gl_FragColor = vec4(color, 1.0);
+}
+</script>
+<script type="text/javascript">
+function ShaderProgram(gl, vertexCode, fragmentCode)
+{
+  this.gl = gl
+
+    var vertexShader = this._compileShader(this.gl.VERTEX_SHADER, vertexCode)
+    var fragmentShader = this._compileShader(this.gl.FRAGMENT_SHADER, fragmentCode)
+
+    this.program = this.gl.createProgram()
+    this.gl.attachShader(this.program, vertexShader)
+    this.gl.attachShader(this.program, fragmentShader)
+    this.gl.linkProgram(this.program)
+
+    if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS))
+      alert("Shader link failed!")
+}
+
+ShaderProgram.prototype.bind = function()
+{
+  this.gl.useProgram(this.program)
+}
+
+ShaderProgram.prototype.getAttributeLocation = function(name)
+{
+  return this.gl.getAttribLocation(this.program, name);
+}
+
+ShaderProgram.prototype.setIntUniform = function(name, value)
+{
+  var location = this.gl.getUniformLocation(this.program, name)
+    this.gl.uniform1i(location, value)
+}
+
+ShaderProgram.prototype.setFloatUniform = function(name, value)
+{
+  var location = this.gl.getUniformLocation(this.program, name)
+    this.gl.uniform1f(location, value)
+}
+
+ShaderProgram.prototype.setVec2Uniform = function(name, value)
+{
+  var location = this.gl.getUniformLocation(this.program, name)
+    this.gl.uniform2f(location, value[0], value[1])
+}
+
+ShaderProgram.prototype.setVec3Uniform = function(name, value)
+{
+  var location = this.gl.getUniformLocation(this.program, name)
+    this.gl.uniform3f(location, value[0], value[1], value[2])
+}
+
+ShaderProgram.prototype.setMat4Uniform = function(name, value)
+{
+  var location = this.gl.getUniformLocation(this.program, name)
+    this.gl.uniformMatrix4fv(location, false, value);
+}
+
+ShaderProgram.prototype._compileShader = function(type, code)
+{
+  var shader = this.gl.createShader(type)
+
+    this.gl.shaderSource(shader, code)
+    this.gl.compileShader(shader)
+
+    if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS))
+    {
+      alert(this.gl.getShaderInfoLog(shader))
+        alert(code)
+        return null
+    }
+
+  return shader
+}
+
+function VertexBuffer(gl, itemSize, itemType, data)
+{
+  this.gl = gl
+
+    this.itemSize = itemSize;
+  this.itemCount = data.length / itemSize;
+  this.itemType = itemType
+
+    this.vbo = this.gl.createBuffer();
+  this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbo);
+  this.gl.bufferData(this.gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+}
+
+VertexBuffer.prototype.bind = function(attributeIndex)
+{
+  this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vbo)
+    this.gl.enableVertexAttribArray(attributeIndex)
+    this.gl.vertexAttribPointer(attributeIndex, this.itemSize, this.itemType, false, 0, 0)
+}
+
+function create_texture(gl, width, height, format, image) {
+  var image = image || null;
+  var format = format || gl.RGBA;
+  width = width || canvas.width;
+  height = height || canvas.height;
+  if (image) {
+    image = new Uint8Array(image, 0, 0);
+  }
+  var texture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, format, width, height, 0, format, gl.UNSIGNED_BYTE, image);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  return texture;
+}
+
+window.onload = function() {
+  var cvs = document.createElement("canvas");
+  var w = cvs.width = 2048;
+  var h = cvs.height = 1024;
+  /*var w = cvs.width = window.innerWidth;
+    var h = cvs.height = window.innerHeight;*/
+  var c = cvs.getContext("2d");
+
+  blueprint = false
+
+    if (blueprint) {
+      var letters = "#fff"
+        var back = "#6666cc";
+      var linesc = "#aaaacc";
+    } else {
+      var letters = "#fff"
+        var back = "#000";
+      var linesc = "rgba(0,0,0,0)"
+    }
+  var width = 0.033 * w;
+  var bottom = 0.63;
+  var left = 0.33;
+  var top_low = 0.42;
+  var top_low_low = 0.45;
+  var top_low_low_low = 0.60;
+  var top = top_low;
+
+  c.fillStyle = back;
+  c.fillRect(0, 0, w, h);
+
+
+  function lines() {
+    c.strokeStyle = linesc;
+    c.lineWidth = 1;
+    c.moveTo(0, Math.ceil(bottom * h + width / 2));
+    c.lineTo(w, Math.ceil(bottom * h + width / 2));
+    c.stroke();
+    c.moveTo(0, Math.ceil(top_low * h + width / 2) - 2);
+    c.lineTo(w, Math.ceil(top_low * h + width / 2) - 2);
+    c.stroke();
+    c.moveTo(0, Math.ceil(top_low * h + width + width / 2) - 1);
+    c.lineTo(w, Math.ceil(top_low * h + width + width / 2) - 1);
+    c.stroke();
+    c.moveTo(0, Math.ceil(top_low_low * h + width / 2));
+    c.lineTo(w, Math.ceil(top_low_low * h + width / 2));
+    c.stroke();
+    c.moveTo(0, Math.ceil(top_low_low_low * h + width - width));
+    c.lineTo(w, Math.ceil(top_low_low_low * h + width - width));
+    c.stroke();
+    c.moveTo(0, Math.ceil(top_low_low_low * h + width / 2));
+    c.lineTo(w, Math.ceil(top_low_low_low * h + width / 2));
+    c.stroke();
+
+    c.moveTo(w * 0.22 - width / 2, h + 30);
+    c.lineTo(w * 0.32 - width / 2, -30);
+    c.stroke();
+    c.moveTo(w * 0.22 + width / 2, h + 30);
+    c.lineTo(w * 0.32 + width / 2, -30);
+    c.stroke();
+  }
+
+  function slash() {
+    c.strokeStyle = letters;
+    c.lineWidth = width;
+    c.moveTo(w * 0.22, h + 30);
+    c.lineTo(w * 0.32, -30);
+    c.stroke();
+  }
+
+  function mask() {
+    c.fillStyle = back;
+    c.fillRect(w * 0.1, 0, w * 0.5, (top_low - 0.1) * h);
+    c.fillRect(w * 0.2, top_low_low * h, w * 0.1, Math.ceil((top_low_low - top_low) * h * 2) + 2);
+    //c.fillRect(w * 0.1, top_low_low * h, w * 0.2, Math.ceil((top_low_low - top_low) * h * 2) + 2);
+    c.fillRect(w * 0.1, bottom * h + width / 2, w * 0.2, h );
+  }
+
+  function t() {
+    c.strokeStyle = letters;
+    c.lineWidth = width;
+    c.moveTo(w * left, h * top);
+    c.lineTo(w * left, h * (bottom - 0.1));
+    c.arcTo( w * left, h * bottom, w * 0.5, h * bottom, width);
+    c.lineTo(w * (left + 0.06), h * bottom);
+    c.stroke();
+    c.moveTo(w * (left + 0.025), h * top_low_low + 0.5 * width);
+    c.lineTo(w * (left + 0.06), h * top_low_low + 0.5 * width);
+    c.stroke();
+  }
+
+  var leftm = 0.43;
+  function m() {
+    c.moveTo(w * leftm, h * top_low);
+    c.lineTo(w * leftm, h * bottom + width / 2);
+    c.stroke();
+
+    c.moveTo(w * (leftm + 0.025), h * top_low_low + width / 2);
+    c.arcTo(w * (leftm + 0.06), h * top_low_low + width / 2, w * (leftm + 0.06), h * bottom, width);
+    c.lineTo(w * (leftm + 0.06), h * bottom + width / 2);
+    c.stroke();
+
+    var kerning_legs = width * 1.7;
+    c.moveTo(w * (leftm + 0.025) + kerning_legs, h * top_low_low + width / 2);
+    c.arcTo(w * (leftm + 0.06) + kerning_legs, h * top_low_low + width / 2, w * (leftm + 0.06) + kerning_legs, h * bottom, width);
+    c.lineTo(w * (leftm + 0.06) + kerning_legs, h * bottom + width / 2);
+    c.stroke();
+  }
+
+  var leftp = 0.60;
+  function p() {
+    c.moveTo(w * leftp, h * top_low);
+    c.lineTo(w * leftp, h * bottom * 1.1 + width / 2);
+    c.stroke();
+
+    c.moveTo(w * (leftp + 0.025), h * top_low_low + width / 2);
+    c.arcTo(w * (leftp + 0.06), h * top_low_low + width / 2, w * (leftp + 0.06), h * bottom, width);
+    c.arcTo(w * (leftp + 0.06), h * bottom,                  w * leftp - 0.06, h * bottom,         width);
+    c.stroke();
+  }
+
+  slash();
+  t();
+  m();
+  p();
+  mask();
+  lines();
+
+  var cvs2 = document.createElement("canvas");
+  cvs2.width = window.innerWidth;
+  cvs2.height = window.innerHeight;
+  var gl = cvs2.getContext("experimental-webgl", {alpha: false});
+  document.body.appendChild(cvs2)
+
+    var quadData = new Float32Array([-1, -1, -1, 1, 1, -1, 1, 1])
+    var vbo = new VertexBuffer(gl, 2, gl.FLOAT, quadData)
+
+    var vsCode = "attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }"
+    var fsCode = document.getElementById("fs").textContent;
+    var shader = new ShaderProgram(gl, vsCode, fsCode)
+    shader.bind()
+    shader.setVec2Uniform("resolutionInverse", [1.0 / cvs2.width, 1.0 / cvs2.height])
+    vbo.bind(shader.getAttributeLocation("position"))
+
+    var tex = create_texture(gl, cvs.width, cvs.height, gl.RGBA, c.getImageData(0, 0, cvs.width, cvs.height).data)
+    gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  shader.setIntUniform("tex", 0)
+
+    function render(timestamp)
+    {
+      var time = timestamp * 0.001
+        gl.clearColor(1.0, Math.sin(time), 0.0, 0.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      shader.setFloatUniform("time", time)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+        requestAnimationFrame(render)
+    }
+  requestAnimationFrame(render)
+}
+</script>
+
+
+</body></html>

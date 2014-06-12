@@ -1,0 +1,8 @@
+{
+  "name": "tmp.graphics",
+  "version": "0.0.1-1",
+  "author": "tmp",
+  "dependencies": {
+    "express": "~4.4.2"
+  }
+}
