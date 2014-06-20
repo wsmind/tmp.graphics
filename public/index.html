@@ -36,7 +36,15 @@ void main() {
   color += vec3(0.0, 0.0, texture2D(tex, (gl_FragCoord.xy + rand(time) * 4.) * resolutionInverse * vec2(1.0, -1.0)).b);
   
   // scanlines
-  color *= mod(gl_FragCoord.y, 3.0);
+  //color *= mod(gl_FragCoord.y, 3.0);
+  
+  //CRT scanlines
+  float apWidth = 9.; //width of 1 "crt pixel"
+  color *= mod(gl_FragCoord.y+ .5*apWidth*floor(gl_FragCoord.x/apWidth), apWidth);
+  color *= clamp(vec3(  mod(floor(gl_FragCoord.x/(apWidth/3.))+0., 3.0)*mod(floor(gl_FragCoord.x/(apWidth/3.))+2., 3.0),
+                        mod(floor(gl_FragCoord.x/(apWidth/3.))+2., 3.0)*mod(floor(gl_FragCoord.x/(apWidth/3.))+1., 3.0),
+                        mod(floor(gl_FragCoord.x/(apWidth/3.))+1., 3.0)*mod(floor(gl_FragCoord.x/(apWidth/3.))+0., 3.0))
+                , vec3(0.), vec3(1.));
   
   // fade to black
   color *= clamp(mod(rand(time * 0.0003), 1.0) * 1.8, 0.0, 1.0);
