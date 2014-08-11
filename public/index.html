@@ -3,17 +3,18 @@
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 <title>/tmp</title>
 <style type="text/css">
-html, body, canvas {
+html, body, canvas, a {
   margin: 0;
   padding: 0;
 }
 
-canvas {
+a, canvas {
   display: block;
 }
 </style>
 </head>
 <body>
+<a id="home" href="releases/"></a>
 <script id="fs" type="x-shader/x-fragment">
 precision mediump float;
 uniform vec2 resolutionInverse;
@@ -298,7 +299,7 @@ window.onload = function() {
   cvs2.width = window.innerWidth;
   cvs2.height = window.innerHeight;
   var gl = cvs2.getContext("experimental-webgl", {alpha: false});
-  document.body.appendChild(cvs2)
+  document.getElementById("home").appendChild(cvs2)
 
     var quadData = new Float32Array([-1, -1, -1, 1, 1, -1, 1, 1])
     var vbo = new VertexBuffer(gl, 2, gl.FLOAT, quadData)
